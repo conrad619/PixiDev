@@ -14,12 +14,13 @@
 
 		PIXI.utils.sayHello(type)
 
-		let WIDTH = 256;
-		let HEIGHT = 256;
+		let WIDTH = 500;
+		let HEIGHT = 500;
 		let app = new PIXI.Application({width:WIDTH, height:HEIGHT});
 		let loader = PIXI.loader,
-				Sprite = PIXI.Sprite,
-				resources = PIXI.loader.resources;
+			Sprite = PIXI.Sprite,
+			resources = PIXI.loader.resources,
+			Container = PIXI.Container;
 
 		document.body.appendChild(app.view);
 
@@ -30,19 +31,34 @@
 
 		loader
 			.add("ship","libs/images/ship.png")
-			.add("ship2","libs/images/ship2.png")
-			.add("enemy","libs/images/sprites.json")
+			.add("alienShips","libs/images/sprites.json")
 			.on("progress",loadProgressHandler)
 			.load(setup);
 
-		let sship;
-		let enemy1,enemy2,enemy3,enemy4;
-		let message
+		//setup variables
+
+		let sship,
+			shipSpeed,
+			sshipHit;
+
+		let numberOfAliens	= 5,
+			spacing			= 64,
+			xOffset 		= WIDTH-(8*32),
+			alienSpeed 		= 2,
+			direction 		= 1;
+
+		let aliens=[];
+
 		let line;
+
 		let lk=0,
-		rk=0,
-		uk=0,
-		dk=0;
+			rk=0,
+			uk=0,
+			dk=0;
+
+		let gameScene, gameOverScene;
+
+		let dmessage;
 
 		function loadProgressHandler(loader,resource){
 
@@ -52,65 +68,64 @@
 		}
 
 		function setup(){
+			gameScene = new Container();
+			app.stage.addChild(gameScene);
 
-			let style = new PIXI.TextStyle({
-				fill:'#ffffff'
-			});
-			message = new PIXI.Text("Hello There!",style);
-			message.position.set(0,0);
+			gameOverScene = new Container();
+			app.stage.addChild(gameOverScene);
+			gameOverScene.visible=false;
 
-			line = new PIXI.Graphics();
-			app.stage.addChild(line);
-
-
+			//setup player ship
 			sship = new Sprite(resources.ship.texture);
-			enemy1 = new Sprite(resources.enemy.textures["enemy1.png"]);
-			enemy2 = new Sprite(resources.enemy.textures["enemy2.png"]);
-			enemy3 = new Sprite(resources.enemy.textures["enemy3.png"]);
-			enemy4 = new Sprite(resources.enemy.textures["enemy4.png"]);
-			enemy5 = new Sprite(resources.enemy.textures["enemy5.png"]);
-
-			let enemies = new PIXI.Container();
-			enemies.addChild(enemy1);
-			enemies.addChild(enemy2);
-			enemies.addChild(enemy3);
-			enemies.addChild(enemy4);
-			enemies.addChild(enemy5);
+			sship.position.set(100,100);
+			sship.vx 	= 0;
+			sship.vy 	= 0;
+			shipSpeed 	= 5;
+			sshipHit 	= false;
+			gameScene.addChild(sship);
 
 
-			app.stage.addChild(sship);
-			app.stage.addChild(enemies);
-			app.stage.addChild(message);
+			//setup enemies
+			for(let i=0; i < numberOfAliens; i++){
+			
+				let alien = new Sprite(resources.alienShips.textures["enemy"+(i+1)+".png"]);
 
+				let x = spacing * i + xOffset;
 
-		 for(let i=0; i< enemies.children.length; i++){
-			  enemies.children[i].position.set(randomInt( 0,WIDTH-32), randomInt( 0, HEIGHT-32));
-				//enemies.children[i].rotation = Math.random() * 3.14;
+				let y = randomInt(0,HEIGHT - alien.height);
+
+				alien.x = x;
+				alien.y = y;
+
+				alien.vy = alienSpeed * direction;
+
+				direction *= -1;
+				
+				aliens.push(alien);
+				gameScene.addChild(alien);
 			}
 
-			sship.position.set(100,100);
-			sship.vx = 0;
-			sship.vy = 0;
 
 
-			let spd=5;
 
-			let left = keyboard("ArrowLeft"),
-					up = keyboard("ArrowUp"),
-					right = keyboard("ArrowRight"),
-					down = keyboard("ArrowDown");
+
+
+			let left 	= keyboard("ArrowLeft"),
+				up 		= keyboard("ArrowUp"),
+				right 	= keyboard("ArrowRight"),
+				down 	= keyboard("ArrowDown");
 
 			left.press = () => {
-				lk=-spd;
+				lk=-shipSpeed;
 			}
 			right.press = () => {
-				rk=spd;
+				rk=shipSpeed;
 			}
 			up.press = () => {
-				uk=-spd;
+				uk=-shipSpeed;
 			}
 			down.press = () => {
-				dk=spd;
+				dk=shipSpeed;
 			}
 
 			left.release = () => {
@@ -126,6 +141,11 @@
 				dk=0;
 			}
 
+			let style = new PIXI.TextStyle({
+				fill: '#ffffff'
+			})
+			dmessage = new PIXI.Text("waaat",style);
+			gameScene.addChild(dmessage);
 
 
 
@@ -146,19 +166,60 @@
 			sship.vy = uk + dk;
 			sship.x += sship.vx;
 			sship.y += sship.vy;
-			//line.x=sship.x;
-			//line.y=sship.y;
-			if(hitTestRectangle(sship,enemy1)){
-				message.text = "hitting";
-			}else{
 
-				message.text = "not";
-			}
-			//sship.rotation += .1*delta;
+			aliens.forEach(function(alien){
+				alien.y += alien.vy;
+
+				let alienHitsWall = contain(alien,{x:0,y:0,width:WIDTH,height:HEIGHT});
+
+				if(alienHitsWall === "top" || alienHitsWall === "bottom"){
+					alien.vy *= -1;
+				}
+
+				if(hitTestRectangle(sship,alien)){
+					sshipHit = true;
+				}
+			});
+			dmessage.x = 50;
+			dmessage.y = 50;
+			dmessage.text = sshipHit;
+
 		}
 
 		function randomInt(min, max) {
 		  return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+
+		function contain(sprite, container) {
+
+		  let collision = undefined;
+
+		  //Left
+		  if (sprite.x < container.x) {
+		    sprite.x = container.x;
+		    collision = "left";
+		  }
+
+		  //Top
+		  if (sprite.y < container.y) {
+		    sprite.y = container.y;
+		    collision = "top";
+		  }
+
+		  //Right
+		  if (sprite.x + sprite.width > container.width) {
+		    sprite.x = container.width - sprite.width;
+		    collision = "right";
+		  }
+
+		  //Bottom
+		  if (sprite.y + sprite.height > container.height) {
+		    sprite.y = container.height - sprite.height;
+		    collision = "bottom";
+		  }
+
+		  //Return the `collision` value
+		  return collision;
 		}
 
 		function hitTestRectangle(r1, r2) {
@@ -184,10 +245,6 @@
 		  //Calculate the distance vector between the sprites
 		  vx = r1.centerX - r2.centerX;
 		  vy = r1.centerY - r2.centerY;
-				line.clear();
-				line.lineStyle(4, 0xFFFFFF, 1);
-			 line.moveTo(r1.centerX,r1.centerY);
-			 line.lineTo(r2.centerX,r2.centerY);
 
 		  //Figure out the combined half-widths and half-heights
 		  combinedHalfWidths = r1.halfWidth + r2.halfWidth;
