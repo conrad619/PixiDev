@@ -31,6 +31,7 @@
 
 		loader
 			.add("ship","libs/images/ship.png")
+			.add("bullet","libs/images/bullet.png")
 			.add("alienShips","libs/images/sprites.json")
 			.on("progress",loadProgressHandler)
 			.load(setup);
@@ -39,7 +40,12 @@
 
 		let sship,
 			shipSpeed,
-			sshipHit;
+			shipHit,
+			shipShoot;
+
+		let bullet,
+			numberOfBullets = 100,
+			bullets = [];
 
 		let numberOfAliens	= 5,
 			spacing			= 64,
@@ -81,14 +87,36 @@
 			sship.vx 	= 0;
 			sship.vy 	= 0;
 			shipSpeed 	= 5;
-			sshipHit 	= false;
+			shipHit 	= false;
 			gameScene.addChild(sship);
+
+			for(let i=0;i < numberOfBullets; i++){
+				let bullet = new Sprite(resources.bullet.texture);
+				bullet.visible=false;
+				bullet.fired=false;
+				bullet.hit = function(){
+					bullet.visible=false;
+					bullet.fired=false;
+				}
+				bullet.firing = function(){
+					bullet.visible=true;
+					bullet.fired=true;
+				}
+				bullet.dead=false;
+				bullet.speed=10;
+				bullet.vx=0;
+				bullet.vy=0;
+				bullets.push(bullet);
+				gameScene.addChild(bullet);
+
+			}
 
 
 			//setup enemies
 			for(let i=0; i < numberOfAliens; i++){
 			
 				let alien = new Sprite(resources.alienShips.textures["enemy"+(i+1)+".png"]);
+
 
 				let x = spacing * i + xOffset;
 
@@ -98,6 +126,7 @@
 				alien.y = y;
 
 				alien.vy = alienSpeed * direction;
+				alien.vx = alienSpeed * -.1;
 
 				direction *= -1;
 				
@@ -114,6 +143,25 @@
 				up 		= keyboard("ArrowUp"),
 				right 	= keyboard("ArrowRight"),
 				down 	= keyboard("ArrowDown");
+			let space = keyboard("a");;
+
+			space.press = () =>{
+				
+				bullets.some(function(bullet){
+
+					if(!bullet.fired){
+						bullet.firing();
+						bullet.x = sship.x+(sship.width/2)-(bullet.width/2);
+						bullet.y = sship.y+(sship.height/2)-(bullet.height/2);
+						bullet.vx = bullet.speed;
+						return true;
+					}
+				});
+			}
+
+			space.release = () =>{
+				dmessage.text = "release";
+			}
 
 			left.press = () => {
 				lk=-shipSpeed;
@@ -166,23 +214,51 @@
 			sship.vy = uk + dk;
 			sship.x += sship.vx;
 			sship.y += sship.vy;
+			contain(sship,{x:0,y:0,width:WIDTH,height:HEIGHT});
+
+			bullets.forEach(function(bullet){
+				if(bullet.fired){
+					bullet.x += bullet.vx;
+
+					let bulletHitsWall = contain(bullet,{x:0,y:0,width:WIDTH,height:HEIGHT});
+
+					if(bulletHitsWall){
+						bullet.hit();
+					}
+
+					aliens.forEach(function(alien){
+						if(hitTestRectangle(bullet,alien) && alien.visible){
+							bullet.hit();
+							alien.visible=false;
+						}
+					});
+				}
+			})
 
 			aliens.forEach(function(alien){
-				alien.y += alien.vy;
+				if(alien.visible){
+					alien.y += alien.vy;
+					alien.x += alien.vx;
 
-				let alienHitsWall = contain(alien,{x:0,y:0,width:WIDTH,height:HEIGHT});
+					let alienHitsWall = contain(alien,{x:0,y:0,width:WIDTH,height:HEIGHT});
 
-				if(alienHitsWall === "top" || alienHitsWall === "bottom"){
-					alien.vy *= -1;
-				}
+					if(alienHitsWall === "top" || alienHitsWall === "bottom"){
+						alien.vy *= -1;
+					}
 
-				if(hitTestRectangle(sship,alien)){
-					sshipHit = true;
+					if(alienHitsWall === "left" || alienHitsWall === "right"){
+						alien.vx *= -1;
+					}
+
+					if(hitTestRectangle(sship,alien)){
+						shipHit = true;
+					}
 				}
 			});
+
+
 			dmessage.x = 50;
 			dmessage.y = 50;
-			dmessage.text = sshipHit;
 
 		}
 
