@@ -14,67 +14,414 @@
 
 		PIXI.utils.sayHello(type)
 
-		let app = new PIXI.Application({width:256, height:256});
+		let WIDTH = 500;
+		let HEIGHT = 500;
+		let app = new PIXI.Application({width:WIDTH, height:HEIGHT});
 		let loader = PIXI.loader,
 			Sprite = PIXI.Sprite,
-			resources = PIXI.loader.resources;
+			resources = PIXI.loader.resources,
+			Container = PIXI.Container;
 
 		document.body.appendChild(app.view);
 
 		app.renderer.view.style.position = "absolute";
 		app.renderer.view.style.display = "block";
 		app.renderer.autoResize = true;
-		//app.renderer.resize(window.innerWidth, window.innerHeight);
-
-		let ship = "libs/images/ship.png";
-		let ship2 = "libs/images/ship2.png";
+		app.renderer.resize(window.innerWidth, window.innerHeight);
 
 		loader
-			.add("ship",ship)
-			.add("ship2",ship2)
+			.add("ship","libs/images/ship.png")
+			.add("bullet","libs/images/bullet.png")
+			.add("alienShips","libs/images/sprites.json")
 			.on("progress",loadProgressHandler)
 			.load(setup);
-		let sprite;
 
+		//setup variables
+
+		let sship,
+			shipSpeed,
+			shipHit,
+			shipShoot;
+
+		let bullet,
+			numberOfBullets = 100,
+			bullets = [];
+
+		let numberOfAliens	= 5,
+			spacing			= 64,
+			xOffset 		= WIDTH-(8*32),
+			alienSpeed 		= 2,
+			direction 		= 1;
+
+		let aliens=[];
+
+		let line;
+
+		let lk=0,
+			rk=0,
+			uk=0,
+			dk=0;
+
+		let gameScene, gameOverScene;
+
+		let state;
+
+		//setting up game
 		function loadProgressHandler(loader,resource){
 
-			console.log("loading: " + resource.url); 
+			console.log("loading: " + resource.url);
 
-			console.log("progress: " + loader.progress + "%"); 
+			console.log("progress: " + loader.progress + "%");
 		}
 
+		//the setup
 		function setup(){
 
-			//let sprite = new Sprite(resources[ship].texture);
-			sprite = new Sprite(resources.ship.texture);
-			
-			app.stage.addChild(sprite);
+			gameScene = new Container();
+			app.stage.addChild(gameScene);
+
+			gameOverScene = new Container();
+			gameOverScene.visible=false;
+			app.stage.addChild(gameOverScene);
+
+			//setup player ship
+			sship = new Sprite(resources.ship.texture);
+			sship.position.set(100,100);
+			sship.vx 	= 0;
+			sship.vy 	= 0;
+			sship.firing = false;
+			sship.fireRate = 0;
+			shipSpeed 	= 5;
+			shipHit 	= false;
+			gameScene.addChild(sship);
+
+			for(let i=0;i < numberOfBullets; i++){
+				let bullet = new Sprite(resources.bullet.texture);
+				bullet.visible=false;
+				bullet.fired=false;
+				bullet.hit = function(){
+					bullet.visible=false;
+					bullet.fired=false;
+				}
+				bullet.firing = function(){
+					bullet.visible=true;
+					bullet.fired=true;
+				}
+				bullet.dead=false;
+				bullet.speed=10;
+				bullet.vx=0;
+				bullet.vy=0;
+				bullets.push(bullet);
+				gameScene.addChild(bullet);
+
+			}
 
 
-			sprite.position.set(100,100);
-			sprite.anchor.x=.5;
-			sprite.anchor.y=.5;
+			//setup enemies
+			for(let i=0; i < numberOfAliens; i++){
 
-			sprite.rotation=.5;
-			//app.stage.removeChild(sprite);
+				let alien = new Sprite(resources.alienShips.textures["enemy"+(i+1)+".png"]);
+
+
+				let x = spacing * i + xOffset;
+
+				let y = randomInt(0,HEIGHT - alien.height);
+
+				alien.x = x;
+				alien.y = y;
+
+				alien.vy = alienSpeed * direction;
+				alien.vx = alienSpeed * -.1;
+
+				direction *= -1;
+
+				aliens.push(alien);
+				gameScene.addChild(alien);
+			}
+
+
+
+
+
+
+			let left 		= keyboard("ArrowLeft"),
+					up 			= keyboard("ArrowUp"),
+					right 	= keyboard("ArrowRight"),
+					down 		= keyboard("ArrowDown");
+			let fire = keyboard("a");;
+
+			fire.press = () =>{
+				sship.firing=true;
+			}
+
+			fire.release = () =>{
+				sship.firing=false;
+			}
+
+			left.press = () => {
+				lk=-shipSpeed;
+			}
+			right.press = () => {
+				rk=shipSpeed;
+			}
+			up.press = () => {
+				uk=-shipSpeed;
+			}
+			down.press = () => {
+				dk=shipSpeed;
+			}
+
+			left.release = () => {
+				lk=0;
+			}
+			right.release = () => {
+				rk=0;
+			}
+			up.release = () => {
+			  uk=0;
+			}
+			down.release = () => {
+				dk=0;
+			}
+
+			let style = new PIXI.TextStyle({
+				fill: '#ffffff'
+			})
+
+
+			let gameOverText = new PIXI.Text("Game Over!",style);
+			gameOverText.x = (WIDTH/2)-gameOverText.width/2;
+			gameOverText.y = (HEIGHT/2)-gameOverText.height/2;
+
+			gameOverScene.addChild(gameOverText);
+
+
+			state=playState;
+
 
 			app.ticker.add(delta=>gameLoop(delta));
 
 		}
 
-		let state=play;
 
 		function gameLoop(delta){
 			state(delta);
-			
+
 		}
 
-		function play(delta){
-			sprite.x += 1*delta;
-			sprite.rotation += .1*delta;
+		function playState(delta){
+			sship.vx = lk + rk;
+			sship.vy = uk + dk;
+			sship.x += sship.vx;
+			sship.y += sship.vy;
+			contain(sship,{x:0,y:0,width:WIDTH,height:HEIGHT});
+			sship.fireRate -= 1 * (delta/60);
+			if(sship.firing && sship.fireRate <= 0){
+
+				sship.fireRate = .2;
+				bullets.some(function(bullet){
+
+					if(!bullet.fired){
+						bullet.firing();
+						bullet.x = sship.x+(sship.width/2)-(bullet.width/2);
+						bullet.y = sship.y+(sship.height/2)-(bullet.height/2);
+						bullet.vx = bullet.speed;
+						return true;
+					}
+
+				});
+			}
+
+			bullets.forEach(function(bullet){
+				if(bullet.fired){
+					bullet.x += bullet.vx;
+
+					let bulletHitsWall = contain(bullet,{x:0,y:0,width:WIDTH,height:HEIGHT});
+
+					if(bulletHitsWall){
+						bullet.hit();
+					}
+
+					aliens.forEach(function(alien){
+						if(hitTestRectangle(bullet,alien) && alien.visible){
+							bullet.hit();
+							alien.visible=false;
+						}
+					});
+				}
+			})
+
+			aliens.forEach(function(alien){
+				if(alien.visible){
+					alien.y += alien.vy;
+					alien.x += alien.vx;
+
+					let alienHitsWall = contain(alien,{x:0,y:0,width:WIDTH,height:HEIGHT});
+
+					if(alienHitsWall === "top" || alienHitsWall === "bottom"){
+						alien.vy *= -1;
+					}
+
+					if(alienHitsWall === "left" || alienHitsWall === "right"){
+						alien.vx *= -1;
+					}
+
+					if(hitTestRectangle(sship,alien)){
+						shipHit = true;
+					}
+				}
+			});
+
+
+			if (shipHit) {
+				state=gameOverState;
+			}
+
+		}
+
+		function gameOverState(delta){
+			gameOverScene.visible=true;
+			gameScene.visible=false;
+
+		}
+
+		function randomInt(min, max) {
+		  return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+
+		function contain(sprite, container) {
+
+		  let collision = undefined;
+
+		  //Left
+		  if (sprite.x < container.x) {
+		    sprite.x = container.x;
+		    collision = "left";
+		  }
+
+		  //Top
+		  if (sprite.y < container.y) {
+		    sprite.y = container.y;
+		    collision = "top";
+		  }
+
+		  //Right
+		  if (sprite.x + sprite.width > container.width) {
+		    sprite.x = container.width - sprite.width;
+		    collision = "right";
+		  }
+
+		  //Bottom
+		  if (sprite.y + sprite.height > container.height) {
+		    sprite.y = container.height - sprite.height;
+		    collision = "bottom";
+		  }
+
+		  //Return the `collision` value
+		  return collision;
+		}
+
+		function hitTestRectangle(r1, r2) {
+
+		  //Define the variables we'll need to calculate
+		  let hit, combinedHalfWidths, combinedHalfHeights, vx, vy;
+
+		  //hit will determine whether there's a collision
+		  hit = false;
+
+		  //Find the center points of each sprite
+		  r1.centerX = r1.getGlobalPosition().x + r1.width / 2;
+		  r1.centerY = r1.getGlobalPosition().y + r1.height / 2;
+		  r2.centerX = r2.getGlobalPosition().x + r2.width / 2;
+		  r2.centerY = r2.getGlobalPosition().y + r2.height / 2;
+
+		  //Find the half-widths and half-heights of each sprite
+		  r1.halfWidth = r1.width / 2;
+		  r1.halfHeight = r1.height / 2;
+		  r2.halfWidth = r2.width / 2;
+		  r2.halfHeight = r2.height / 2;
+
+		  //Calculate the distance vector between the sprites
+		  vx = r1.centerX - r2.centerX;
+		  vy = r1.centerY - r2.centerY;
+
+		  //Figure out the combined half-widths and half-heights
+		  combinedHalfWidths = r1.halfWidth + r2.halfWidth;
+		  combinedHalfHeights = r1.halfHeight + r2.halfHeight;
+
+		  //Check for a collision on the x axis
+		  if (Math.abs(vx) < combinedHalfWidths) {
+
+		    //A collision might be occurring. Check for a collision on the y axis
+		    if (Math.abs(vy) < combinedHalfHeights) {
+
+		      //There's definitely a collision happening
+		      hit = true;
+		    } else {
+
+		      //There's no collision on the y axis
+		      hit = false;
+		    }
+		  } else {
+
+		    //There's no collision on the x axis
+		    hit = false;
+		  }
+
+		  //`hit` will be either `true` or `false`
+		  return hit;
+		};
+
+		function keyboard(value) {
+		  let key = {};
+		  key.value = value;
+		  key.isDown = false;
+		  key.isUp = true;
+		  key.press = undefined;
+		  key.release = undefined;
+		  //The `downHandler`
+		  key.downHandler = event => {
+		    if (event.key === key.value) {
+		      if (key.isUp && key.press) key.press();
+		      key.isDown = true;
+		      key.isUp = false;
+		      event.preventDefault();
+		    }
+		  };
+
+
+		  //The `upHandler`
+		  key.upHandler = event => {
+		    if (event.key === key.value) {
+		      if (key.isDown && key.release) key.release();
+		      key.isDown = false;
+		      key.isUp = true;
+		      event.preventDefault();
+		    }
+		  };
+
+		  //Attach event listeners
+		  const downListener = key.downHandler.bind(key);
+		  const upListener = key.upHandler.bind(key);
+
+		  window.addEventListener(
+		    "keydown", downListener, false
+		  );
+		  window.addEventListener(
+		    "keyup", upListener, false
+		  );
+
+		  // Detach event listeners
+		  key.unsubscribe = () => {
+		    window.removeEventListener("keydown", downListener);
+		    window.removeEventListener("keyup", upListener);
+		    window.removeEventListener("keypress", upListener);
+		  };
+
+		  return key;
 		}
 
 	</script>
-	
+
 </body>
 </html>
