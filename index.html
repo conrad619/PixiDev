@@ -15,6 +15,9 @@
 		PIXI.utils.sayHello(type)
 
 		let app = new PIXI.Application({width:256, height:256});
+		let loader = PIXI.loader,
+			Sprite = PIXI.Sprite,
+			resources = PIXI.loader.resources;
 
 		document.body.appendChild(app.view);
 
@@ -23,15 +26,52 @@
 		app.renderer.autoResize = true;
 		//app.renderer.resize(window.innerWidth, window.innerHeight);
 
-		PIXI.loader.add("libs/images/ship.png").load(setup);
+		let ship = "libs/images/ship.png";
+		let ship2 = "libs/images/ship2.png";
+
+		loader
+			.add("ship",ship)
+			.add("ship2",ship2)
+			.on("progress",loadProgressHandler)
+			.load(setup);
+		let sprite;
+
+		function loadProgressHandler(loader,resource){
+
+			console.log("loading: " + resource.url); 
+
+			console.log("progress: " + loader.progress + "%"); 
+		}
 
 		function setup(){
 
-			let sprite = new PIXI.Sprite(PIXI.loader.resources["libs/images/ship.png"].texture);
+			//let sprite = new Sprite(resources[ship].texture);
+			sprite = new Sprite(resources.ship.texture);
+			
 			app.stage.addChild(sprite);
 
+
+			sprite.position.set(100,100);
+			sprite.anchor.x=.5;
+			sprite.anchor.y=.5;
+
+			sprite.rotation=.5;
 			//app.stage.removeChild(sprite);
 
+			app.ticker.add(delta=>gameLoop(delta));
+
+		}
+
+		let state=play;
+
+		function gameLoop(delta){
+			state(delta);
+			
+		}
+
+		function play(delta){
+			sprite.x += 1*delta;
+			sprite.rotation += .1*delta;
 		}
 
 	</script>
