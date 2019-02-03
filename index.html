@@ -14,20 +14,20 @@
 
 		PIXI.utils.sayHello(type)
 
-		let WIDTH = 500;
-		let HEIGHT = 500;
+		let WIDTH = 800;
+		let HEIGHT = 600;
 		let app = new PIXI.Application({width:WIDTH, height:HEIGHT});
-		let loader = PIXI.loader,
-			Sprite = PIXI.Sprite,
-			resources = PIXI.loader.resources,
-			Container = PIXI.Container;
+		let loader	  = PIXI.loader,
+				Sprite	  = PIXI.Sprite,
+				resources = PIXI.loader.resources,
+				Container = PIXI.Container;
 
 		document.body.appendChild(app.view);
 
 		app.renderer.view.style.position = "absolute";
 		app.renderer.view.style.display = "block";
 		app.renderer.autoResize = true;
-		app.renderer.resize(window.innerWidth, window.innerHeight);
+		//app.renderer.resize(window.innerWidth, window.innerHeight);
 
 		loader
 			.add("ship","libs/images/ship.png")
@@ -62,7 +62,7 @@
 			uk=0,
 			dk=0;
 
-		let gameScene, gameOverScene;
+		let gameScene, gameOverScene, gameWinScene;
 
 		let state;
 
@@ -83,6 +83,10 @@
 			gameOverScene = new Container();
 			gameOverScene.visible=false;
 			app.stage.addChild(gameOverScene);
+
+			gameWinScene = new Container();
+			gameWinScene.visible=false;
+			app.stage.addChild(gameWinScene);
 
 			//setup player ship
 			sship = new Sprite(resources.ship.texture);
@@ -196,6 +200,13 @@
 			gameOverScene.addChild(gameOverText);
 
 
+			let gameWinText = new PIXI.Text("You Win!",style);
+			gameWinText.x = (WIDTH/2)-gameWinText.width/2;
+			gameWinText.y = (HEIGHT/2)-gameWinText.height/2;
+
+			gameWinScene.addChild(gameWinText);
+
+
 			state=playState;
 
 
@@ -214,11 +225,18 @@
 			sship.vy = uk + dk;
 			sship.x += sship.vx;
 			sship.y += sship.vy;
-			contain(sship,{x:0,y:0,width:WIDTH,height:HEIGHT});
+
+			let shipHitsWall = contain(sship,{x:0,y:0,width:WIDTH,height:HEIGHT});
+
+			if(shipHitsWall === "right"){
+				state=gameWinState;
+			}
+
+
 			sship.fireRate -= 1 * (delta/60);
 			if(sship.firing && sship.fireRate <= 0){
 
-				sship.fireRate = .2;
+				sship.fireRate =.2;
 				bullets.some(function(bullet){
 
 					if(!bullet.fired){
@@ -281,6 +299,12 @@
 
 		function gameOverState(delta){
 			gameOverScene.visible=true;
+			gameScene.visible=false;
+
+		}
+
+		function gameWinState(delta){
+			gameWinScene.visible=true;
 			gameScene.visible=false;
 
 		}
