@@ -53,6 +53,14 @@
 			alienSpeed 		= 2,
 			direction 		= 1;
 
+		let alienPattern = [
+			[0,0,0,0,1],
+			[0,0,0,1,0],
+			[0,0,1,0,0],
+			[0,1,0,0,0],
+			[1,0,0,0,0]
+		];
+
 		let aliens=[];
 
 		let line;
@@ -124,7 +132,7 @@
 			//setup enemies
 			for(let i=0; i < numberOfAliens; i++){
 
-				let alien = new Sprite(resources.alienShips.textures["enemy"+(i+1)+".png"]);
+				let alien = new Sprite(resources.alienShips.textures["enemy1.png"]);
 
 
 				let x = spacing * i + xOffset;
@@ -142,6 +150,7 @@
 				aliens.push(alien);
 				gameScene.addChild(alien);
 			}
+
 
 
 
@@ -220,6 +229,9 @@
 
 		}
 
+		let spawn = false;
+
+
 		function playState(delta){
 			sship.vx = lk + rk;
 			sship.vy = uk + dk;
@@ -233,10 +245,11 @@
 			}
 
 
-			sship.fireRate -= 1 * (delta/60);
+			sship.fireRate -= (1/60) * delta;
 			if(sship.firing && sship.fireRate <= 0){
 
-				sship.fireRate =.2;
+				sship.fireRate = .2;
+
 				bullets.some(function(bullet){
 
 					if(!bullet.fired){
@@ -274,7 +287,7 @@
 					alien.y += alien.vy;
 					alien.x += alien.vx;
 
-					let alienHitsWall = contain(alien,{x:0,y:0,width:WIDTH,height:HEIGHT});
+					let alienHitsWall = contain(alien,{x:0,y:0,width:WIDTH*2,height:HEIGHT});
 
 					if(alienHitsWall === "top" || alienHitsWall === "bottom"){
 						alien.vy *= -1;
@@ -293,6 +306,33 @@
 
 			if (shipHit) {
 				state=gameOverState;
+			}
+
+			if(!spawn){
+
+				spawn = true;
+				for(let i = 0;i < 5; i++){ //column
+					for(let j = 0;j < 5; j++){ //row
+						if(alienPattern[j][i] == 1){
+							let alien = new Sprite(resources.alienShips.textures["enemy2.png"]);
+							alien.y = 64 * i;
+							alien.x = (64 * j)+(WIDTH/2);
+							alien.vy = 0;
+							alien.vx = alienSpeed * -.1;
+							aliens.push(alien);
+							gameScene.addChild(alien);
+						}
+					}
+				}
+			}
+
+		}
+
+		function timeDelay(time, delta, func){
+			if(time > 0){
+				time -= (1/60) * delta;
+			}else if (time == 0){
+				func();
 			}
 
 		}
