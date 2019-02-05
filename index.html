@@ -5,6 +5,7 @@
 </head>
 	<style>* {padding: 0; margin: 0}</style>
 	<script src="libs/js/pixi.min.js"></script>
+	<script src="libs/js/levels.js"></script>
 <body>
 	<script type="text/javascript">
 		let type="WebGL"
@@ -54,11 +55,11 @@
 			direction 		= 1;
 
 		let alienPattern = [
-			[0,0,0,0,1],
-			[0,0,0,1,0],
-			[0,0,1,0,0],
-			[0,1,0,0,0],
-			[1,0,0,0,0]
+			[0,0,0,0,1,0,0,0,0],
+			[0,0,0,1,0,1,0,0,0],
+			[0,0,1,0,0,0,1,0,0],
+			[0,1,0,0,0,0,0,1,0],
+			[1,0,0,0,0,0,0,0,1]
 		];
 
 		let aliens=[];
@@ -229,8 +230,6 @@
 
 		}
 
-		let spawn = false;
-
 
 		function playState(delta){
 			sship.vx = lk + rk;
@@ -308,33 +307,58 @@
 				state=gameOverState;
 			}
 
-			if(!spawn){
+			// if(!spawn){
 
-				spawn = true;
-				for(let i = 0;i < 5; i++){ //column
-					for(let j = 0;j < 5; j++){ //row
-						if(alienPattern[j][i] == 1){
-							let alien = new Sprite(resources.alienShips.textures["enemy2.png"]);
-							alien.y = 64 * i;
-							alien.x = (64 * j)+(WIDTH/2);
-							alien.vy = 0;
-							alien.vx = alienSpeed * -.1;
-							aliens.push(alien);
-							gameScene.addChild(alien);
-						}
-					}
-				}
+			// 	spawn = true;				
+			// 	let offset=0;
+			// 	for(let o=0; o < 2;o++){
+			// 		spawnAlien(LEVEL_2,spawnFunc,offset*0);
+			// 	}
+			// }			
+			//timerFunc.push(ff);
+			if(!spawn){
+				spawn=true;
+			  	setTimer(3,function(){spawnAlien(LEVEL_1,spawnFunc,0)});
+			  	setTimer(6,function(){spawnAlien(LEVEL_2,spawnFunc,0)});
 			}
+			  timerUpdate(delta);
 
 		}
 
-		function timeDelay(time, delta, func){
-			if(time > 0){
-				time -= (1/60) * delta;
-			}else if (time == 0){
-				func();
-			}
+		let spawn = false;
+		let timers=[];
+		let timerFunc=[];
+		function timerUpdate(delta){
 
+			timers.forEach(function(time,index){
+				if(time != -9999){
+					if(time >= 0){
+						timers[index] -= (1/60) * delta;
+					}else if (time <= 0){
+						timerFunc[index]();
+						timers[index] = -9999;
+					}
+				}
+
+			});
+		}
+
+		function setTimer(time,func){
+			if(!timerFunc.includes(func)){
+
+				timers.push(time);
+				timerFunc.push(func);
+			}
+		}
+
+		function spawnFunc(x, y, offset){			
+			let alien = new Sprite(resources.alienShips.textures["enemy2.png"]);
+			alien.y = 64 * y;
+			alien.x = (64 * x)+(WIDTH)+(offset);
+			alien.vy = 0;
+			alien.vx = alienSpeed * -1;
+			aliens.push(alien);
+			gameScene.addChild(alien);
 		}
 
 		function gameOverState(delta){
@@ -479,7 +503,6 @@
 		  key.unsubscribe = () => {
 		    window.removeEventListener("keydown", downListener);
 		    window.removeEventListener("keyup", upListener);
-		    window.removeEventListener("keypress", upListener);
 		  };
 
 		  return key;
